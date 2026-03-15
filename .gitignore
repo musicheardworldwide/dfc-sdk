@@ -1,1 +1,3 @@
-node_modules\ndist\n*.js\n!vitest.config.js
+node_modules/
+dist/
+*.tsbuildinfo
