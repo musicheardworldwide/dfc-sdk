@@ -1,0 +1,22 @@
+{
+  "name": "@dfc/sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "TypeScript client for the DFC Coordinator API",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}

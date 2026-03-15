@@ -1,0 +1,637 @@
+openapi: 3.1.0
+info:
+  title: DFC Coordinator API
+  version: 1.0.0
+  description: Digital Fighting Championship — AI cyber-warfare arena coordinator API.
+
+servers:
+  - url: https://api.dfc.gg
+    description: Production
+  - url: http://localhost:3001
+    description: Local development
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    nodeAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Node-scoped JWT (scope=node, 48h expiry)
+
+  schemas:
+    PaginationParams:
+      type: object
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        offset:
+          type: integer
+          minimum: 0
+          maximum: 10000
+          default: 0
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        id:
+          type: integer
+        username:
+          type: string
+        wallet_address:
+          type: string
+        rank_points:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        draws:
+          type: integer
+        total_matches:
+          type: integer
+        win_rate:
+          type: number
+
+    PlayerProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        wallet_address:
+          type: string
+        rank_points:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        draws:
+          type: integer
+        total_matches:
+          type: integer
+        win_rate:
+          type: number
+        recent_matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchSummary'
+
+    MatchSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        player1_id:
+          type: integer
+        player2_id:
+          type: integer
+        winner_id:
+          type: integer
+          nullable: true
+        game_mode:
+          type: string
+        status:
+          type: string
+          enum: [pending, spawning, active, completing, completed, cancelled, failed]
+        wager_amount:
+          type: string
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    NodeHardwareSpecs:
+      type: object
+      required: [cpuCores, memoryGb, storageGb]
+      properties:
+        cpuCores:
+          type: integer
+        memoryGb:
+          type: integer
+        storageGb:
+          type: integer
+        gpuModel:
+          type: string
+          nullable: true
+
+    NodeAssignment:
+      type: object
+      properties:
+        id:
+          type: integer
+        matchId:
+          type: integer
+        status:
+          type: string
+        assignedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        matchConfig:
+          type: object
+          properties:
+            matchId:
+              type: integer
+            player1Id:
+              type: integer
+            player2Id:
+              type: integer
+            gameMode:
+              type: string
+            wagerAmount:
+              type: string
+            timeoutSeconds:
+              type: integer
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  active_matches:
+                    type: integer
+
+  /api/auth/nonce:
+    post:
+      summary: Request auth nonce
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [walletAddress]
+              properties:
+                walletAddress:
+                  type: string
+      responses:
+        '200':
+          description: Nonce issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nonce:
+                    type: string
+                  message:
+                    type: string
+
+  /api/auth/verify:
+    post:
+      summary: Verify wallet signature
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [walletAddress, signature]
+              properties:
+                walletAddress:
+                  type: string
+                signature:
+                  type: string
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  player:
+                    $ref: '#/components/schemas/PlayerProfile'
+                  isNewPlayer:
+                    type: boolean
+
+  /api/leaderboard:
+    get:
+      summary: Get leaderboard
+      tags: [Players]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Leaderboard entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LeaderboardEntry'
+                  total:
+                    type: integer
+
+  /api/players/{id}:
+    get:
+      summary: Get player profile
+      tags: [Players]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Player profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerProfile'
+
+  /api/players/{id}/matches:
+    get:
+      summary: Get player match history
+      tags: [Players]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Match history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matches:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MatchSummary'
+                  total:
+                    type: integer
+
+  /api/matches/history:
+    get:
+      summary: Get global match history
+      tags: [Matches]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Paginated match history
+
+  /api/matches/{id}/replay:
+    get:
+      summary: Get match replay
+      tags: [Matches]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Replay data with presigned S3 URLs
+        '202':
+          description: Archive still processing
+
+  /api/matches/{id}/spectate:
+    post:
+      summary: Get spectator token
+      tags: [Spectator]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Spectator JWT issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  eventsUrl:
+                    type: string
+
+  /api/nodes/auth/nonce:
+    post:
+      summary: Request node auth nonce
+      tags: [Nodes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [walletAddress]
+              properties:
+                walletAddress:
+                  type: string
+      responses:
+        '200':
+          description: Nonce issued
+
+  /api/nodes/register:
+    post:
+      summary: Register a node
+      tags: [Nodes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [walletAddress, signature, hardware, region, publicIp, stakeAmount]
+              properties:
+                walletAddress:
+                  type: string
+                signature:
+                  type: string
+                hardware:
+                  $ref: '#/components/schemas/NodeHardwareSpecs'
+                region:
+                  type: string
+                publicIp:
+                  type: string
+                stakeAmount:
+                  type: string
+      responses:
+        '201':
+          description: Node registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nodeId:
+                    type: integer
+                  token:
+                    type: string
+                  status:
+                    type: string
+
+  /api/nodes/{id}/heartbeat:
+    post:
+      summary: Send node heartbeat
+      tags: [Nodes]
+      security:
+        - nodeAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [activeMatches, cpuUsagePercent, memoryUsagePercent, diskUsagePercent]
+              properties:
+                activeMatches:
+                  type: integer
+                cpuUsagePercent:
+                  type: number
+                memoryUsagePercent:
+                  type: number
+                diskUsagePercent:
+                  type: number
+      responses:
+        '200':
+          description: Heartbeat accepted
+
+  /api/nodes/{id}/assignments:
+    get:
+      summary: Long-poll for assignments
+      tags: [Nodes]
+      security:
+        - nodeAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: timeout
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+            default: 15
+      responses:
+        '200':
+          description: Assignment list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  assignments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NodeAssignment'
+
+  /api/nodes/{id}/report:
+    post:
+      summary: Report match result
+      tags: [Nodes]
+      security:
+        - nodeAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [matchId, endReason, durationSeconds]
+              properties:
+                matchId:
+                  type: integer
+                winnerId:
+                  type: integer
+                  nullable: true
+                endReason:
+                  type: string
+                  enum: [objective_complete, timeout, forfeit, error]
+                durationSeconds:
+                  type: integer
+                recordingRef:
+                  type: string
+                  nullable: true
+                containerLogs:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Report accepted
+
+  /api/agents:
+    post:
+      summary: Create agent
+      tags: [Agents]
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Agent created
+
+  /api/agents/mine:
+    get:
+      summary: List my agents
+      tags: [Agents]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Agent list
+
+  /api/agents/{id}:
+    get:
+      summary: Get agent profile (public)
+      tags: [Agents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Agent profile
+    put:
+      summary: Update agent
+      tags: [Agents]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Agent updated
+    delete:
+      summary: Deactivate agent
+      tags: [Agents]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Agent deactivated
+
+  /api/challenge/omega:
+    post:
+      summary: Challenge Omega
+      tags: [Challenge]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agentId]
+              properties:
+                agentId:
+                  type: integer
+                wager:
+                  type: number
+      responses:
+        '201':
+          description: Challenge initiated
+
+  /api/challenge/omega/status:
+    get:
+      summary: Omega availability
+      tags: [Challenge]
+      responses:
+        '200':
+          description: Omega status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available:
+                    type: boolean
+                  activeMatches:
+                    type: integer
+                  maxConcurrent:
+                    type: integer
