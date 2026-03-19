@@ -1,10 +1,10 @@
 import type { DfcClient } from './client.js';
-import type { LeaderboardEntry, MatchSummary, PaginatedResponse, PlayerProfile } from './types.js';
+import type { LeaderboardResponse, MatchListResponse, PlayerProfile } from './types.js';
 
 export class PlayersApi {
   constructor(private readonly client: DfcClient) {}
 
-  async getLeaderboard(limit = 50, offset = 0): Promise<PaginatedResponse<LeaderboardEntry>> {
+  async getLeaderboard(limit = 50, offset = 0): Promise<LeaderboardResponse> {
     return this.client.get(`/api/leaderboard?limit=${limit}&offset=${offset}`);
   }
 
@@ -16,7 +16,7 @@ export class PlayersApi {
     playerId: number,
     limit = 20,
     offset = 0,
-  ): Promise<PaginatedResponse<MatchSummary>> {
+  ): Promise<MatchListResponse> {
     return this.client.get(`/api/players/${playerId}/matches?limit=${limit}&offset=${offset}`);
   }
 }

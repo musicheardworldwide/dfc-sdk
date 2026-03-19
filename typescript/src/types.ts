@@ -46,6 +46,22 @@ export interface MatchSummary {
   readonly completed_at: string | null;
 }
 
+/** Generic paginated response using `entries` key (e.g. leaderboard). */
+export interface LeaderboardResponse {
+  readonly entries: readonly LeaderboardEntry[];
+  readonly total: number;
+}
+
+/** Paginated match list response using `matches` key. */
+export interface MatchListResponse {
+  readonly matches: readonly MatchSummary[];
+  readonly total: number;
+}
+
+/**
+ * @deprecated Use `LeaderboardResponse` or `MatchListResponse` instead.
+ * This type had ambiguous optional fields that TypeScript could not narrow.
+ */
 export interface PaginatedResponse<T> {
   readonly entries?: readonly T[];
   readonly matches?: readonly T[];
@@ -99,6 +115,9 @@ export interface NodeAssignment {
 
 export type MatchEndReason = 'objective_complete' | 'timeout' | 'forfeit' | 'error';
 
+/** Maximum bytes for containerLogs in a match report (64 KiB). */
+export const CONTAINER_LOGS_MAX_BYTES = 65_536;
+
 export interface NodeMatchReport {
   readonly matchId: number;
   readonly winnerId: number | null;
@@ -106,6 +125,21 @@ export interface NodeMatchReport {
   readonly durationSeconds: number;
   readonly recordingRef: string | null;
   readonly containerLogs: string | null;
+}
+
+/**
+ * Truncate container logs to the last `maxBytes` bytes.
+ * Use before submitting a `NodeMatchReport` to avoid sending oversized payloads.
+ */
+export function truncateContainerLogs(
+  logs: string | null,
+  maxBytes = CONTAINER_LOGS_MAX_BYTES,
+): string | null {
+  if (logs === null) return null;
+  const encoded = new TextEncoder().encode(logs);
+  if (encoded.byteLength <= maxBytes) return logs;
+  const trimmed = encoded.slice(encoded.byteLength - maxBytes);
+  return new TextDecoder().decode(trimmed);
 }
 
 export interface OmegaStatus {

@@ -1,10 +1,10 @@
 import type { DfcClient } from './client.js';
-import type { MatchSummary, PaginatedResponse } from './types.js';
+import type { MatchListResponse, MatchSummary } from './types.js';
 
 export class MatchesApi {
   constructor(private readonly client: DfcClient) {}
 
-  async getHistory(limit = 20, offset = 0): Promise<PaginatedResponse<MatchSummary>> {
+  async getHistory(limit = 20, offset = 0): Promise<MatchListResponse> {
     return this.client.get(`/api/matches/history?limit=${limit}&offset=${offset}`);
   }
 
